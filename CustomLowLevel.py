@@ -53,15 +53,8 @@ def hohmann_any_angle(k, rv, r_f):
     dv_a = np.sqrt(2 * k / r_i - k / a_trans) - v_i
     dv_b = np.sqrt(k / r_f) - np.sqrt(2 * k / r_f - k / a_trans)
 
-    # dv_a = np.array([0, dv_a, 0])
-    # dv_b = np.array([0, -dv_b, 0])
-
     dv_a = np.array([-np.sin(nu) * dv_a, np.cos(nu) * dv_a, 0])
     dv_b = np.array([np.sin(nu) * dv_b, -np.cos(nu) * dv_b, 0])
-
-    print('dv_a: ' , dv_a)
-    print('dv_b: ' , dv_b)
-
 
     rot_matrix = coe_rotation_matrix(inc, raan, argp)
 

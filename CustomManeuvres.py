@@ -25,9 +25,16 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit):
     ----------
 
     """
+    # Calculate transfer time for delta_u
+    r_f = orbit_f.a
+    r_f = r_f.to_value(u.m)
+    rv = orbit_i.rv()
+    rv = (rv[0].to_value(u.m), rv[-1].to_value(u.m / u.s))
+    k = orbit_i.attractor.k
+    _, _, t_trans = hohmann_any_angle(k, rv, r_f)
 
     # Calculate delta at which the burn should be applied
-    target_delta = delta_u(orbit_i.a, orbit_f.a)
+    target_delta = delta_u(t_trans, orbit_f)
     print('Target Delta: ' , target_delta)
 
     # Calulate the current delta
@@ -50,7 +57,8 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit):
     print('orbit_i.nu: ' , orbit_i.nu << u.deg)
     print('new delta: ' , orbit_f.nu - orbit_i.nu << u.deg)
 
-    # Format for hohmann_fast
+
+    # Compute delta_v vectors from first burn location
     r_f = orbit_f.a
     r_f = r_f.to_value(u.m)
     rv = orbit_i.rv()
@@ -58,60 +66,11 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit):
 
     # Calculate hohmann DV and Transfer Time from the first burn location
     k = orbit_i.attractor.k
-    
-    # Debug
-    print('rv: ' , rv)
-
-    _, ecc, inc, raan, argp, nu = rv2coe(k, *rv)
-    rot_matrix = coe_rotation_matrix(inc, raan, argp)
-    print('rot_matrix: ' , rot_matrix)
-
-
     dv_a, dv_b, t_trans = hohmann_any_angle(k, rv, r_f)
     dv_a, dv_b, t_trans = dv_a * u.m / u.s, dv_b * u.m / u.s, t_trans * u.s
-
     t_2 = t_trans
-
 
     return Maneuver(
         (t_1.decompose(), dv_a.decompose()),
         (t_2.decompose(), dv_b.decompose()),
     )
-
-    
-
-    # # Calculate Delta-U
-    # d_u = delta_u(orbit_i.a, orbit_f.a)
-
-    # print('Delta_U: ' , d_u)
-    # print('orbit_i.nu: ' , orbit_i.nu)
-
-    # # Find location of first burn
-    # first_burn = orbit_f.nu - d_u
-
-    # # 
-
-
-    # # t_1 = orbit_i.time_to_anomaly(orbit_f.nu + d_u << u.)
-    # # orbit_i = orbit_i.propagate_to_anomaly(((orbit_f.a + d_u) ) * u.deg)
-
-
-    # k = orbit_i.attractor.k
-
-    # rv = orbit_i.rv()
-    # rv = (rv[0].to_value(u.m), rv[-1].to_value(u.m / u.s))
-
-    # k = k.to_value(u.m**3 / u.s**2)
-    # r_f = r_f.to_value(u.m)
-
-    # dv_a, dv_b, t_trans = hohmann_fast(k, rv, r_f)
-    # dv_a, dv_b, t_trans = dv_a * u.m / u.s, dv_b * u.m / u.s, t_trans * u.s
-
-    # # t_1 is the time until the first burn
-
-    # return Maneuver(
-    #     (t_1.decompose(), dv_a.decompose()),
-    #     (t_trans.decompose(), dv_b.decompose()),
-    # )
-
-
