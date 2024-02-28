@@ -40,7 +40,7 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit):
     # Calulate the current delta
     current_delta =  orbit_f.nu -  orbit_i.nu << u.deg
     if current_delta < 0:
-        current_delta = 360 * u.deg + current_delta # wrap to 
+        current_delta = 360 * u.deg + current_delta # wrap to 360
     print('current_delta : ' , current_delta)
 
     # Calculate the angular velocities
@@ -48,7 +48,12 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit):
     w_f = orbit_f.n.to(u.deg / u.s)
 
     # Calculate the time to the first burn
-    t_1 = (current_delta - target_delta) / (w_i - w_f)
+    dist = current_delta - target_delta
+    print('dist before: ' , dist)
+    if dist < 0:
+        dist = 360 * u.deg + dist # wrap to 360
+    print('dist after: ' , dist)
+    t_1 = dist / (w_i - w_f)
     print('t_1: ' , t_1)
 
     # Propagate to the first burn
