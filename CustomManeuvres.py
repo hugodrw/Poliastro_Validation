@@ -15,6 +15,7 @@ from poliastro.twobody.orbit import Orbit
 from InPlanePhysics import delta_u
 from poliastro.util import norm, wrap_angle
 from poliastro.core.elements import coe_rotation_matrix, rv2coe, rv_pqw
+import numpy as np
 
 
 def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit):
@@ -78,4 +79,42 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit):
     return Maneuver(
         (t_1.decompose(), dv_a.decompose()),
         (t_2.decompose(), dv_b.decompose()),
+    )
+
+def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit):
+    r"""Compute thrust vectors and phase time needed for an inclination change.
+
+    Parameters
+    ----------
+
+    """
+
+    # Propagate to thrust location (0, 180)
+    thrust_location = 0 * u.deg if orbit_i.nu <= 0 else 179.999 * u.deg
+    time_to_thrust = orbit_i.time_to_anomaly(thrust_location)
+    print('currrent_anomaly', orbit_i.nu)
+    print('thrust_location', thrust_location)
+    print('time_to_thrust', time_to_thrust)
+    orbit_i = orbit_i.propagate_to_anomaly(thrust_location)
+
+    # Calculate the thrust value
+    v = norm(orbit_i.v << u.m / u.s)
+    inc_i = orbit_i.inc << u.rad
+    inc_f = orbit_f.inc << u.rad
+    inc_delta = inc_f - inc_i
+    thrust_norm = 2*v*np.sin((inc_delta << u.rad)/2)
+
+    print('thrust_norm', thrust_norm)
+
+    # Calculate the thrust vector
+    y_thrust = np.sin(inc_delta/2)*thrust_norm
+    z_thrust = -np.cos(inc_delta/2)*thrust_norm
+    
+    print('y_thrust', y_thrust)
+    print('z_thrust', z_thrust)
+
+    thrust_vector = np.array([0 ,y_thrust.value,z_thrust.value]) * u.m / u.s
+
+    return Maneuver(
+        (time_to_thrust.decompose(), thrust_vector.decompose())
     )
