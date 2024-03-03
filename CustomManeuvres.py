@@ -18,7 +18,7 @@ from poliastro.core.elements import coe_rotation_matrix, rv2coe, rv_pqw
 import numpy as np
 
 
-def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit):
+def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     r"""Compute a Hohmann transfer with correct phasing to a target debris.
     For circular orbits only.
 
@@ -39,10 +39,12 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit):
     print('Target Delta: ' , target_delta)
 
     # Calulate the current delta
-    current_delta =  orbit_f.nu -  orbit_i.nu << u.deg
+    mean_anomaly_i = (orbit_i.nu + orbit_i.argp) << u.deg
+    mean_anomaly_f = (orbit_f.nu + orbit_f.argp) << u.deg
+    current_delta =  mean_anomaly_f - mean_anomaly_i << u.deg
     if current_delta < 0:
         current_delta = 360 * u.deg + current_delta # wrap to 360
-    print('current_delta : ' , current_delta)
+    print('current_delta : ' , current_delta) if debug else None
 
     # Calculate the angular velocities
     w_i = orbit_i.n.to(u.deg / u.s)
@@ -60,9 +62,13 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit):
     # Propagate to the first burn
     orbit_i = orbit_i.propagate(t_1)
     orbit_f = orbit_f.propagate(t_1)
-    print('orbit_i.nu: ' , orbit_i.nu << u.deg)
-    print('new delta: ' , orbit_f.nu - orbit_i.nu << u.deg)
+    
+    if debug:
+        mean_anomaly_i = (orbit_i.nu + orbit_i.argp) << u.deg
+        mean_anomaly_f = (orbit_f.nu + orbit_f.argp) << u.deg
 
+        print('mean_anomaly_i: ' , mean_anomaly_i)
+        print('new delta: ' , mean_anomaly_f - mean_anomaly_i << u.deg)
 
     # Compute delta_v vectors from first burn location
     r_f = orbit_f.a
@@ -88,11 +94,13 @@ def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit):
     ----------
 
     """
+    # Fix anomaly 
+    mean_anomaly_i = (orbit_i.nu + orbit_i.argp) << u.deg
 
     # Propagate to thrust location (0, 180)
-    thrust_location = 0 * u.deg if orbit_i.nu <= 0 else 179.999 * u.deg
+    thrust_location = 0 * u.deg if mean_anomaly_i <= 0 else 179.999 * u.deg
     time_to_thrust = orbit_i.time_to_anomaly(thrust_location)
-    print('currrent_anomaly', orbit_i.nu)
+    print('currrent_anomaly', mean_anomaly_i)
     print('thrust_location', thrust_location)
     print('time_to_thrust', time_to_thrust)
     orbit_i = orbit_i.propagate_to_anomaly(thrust_location)
