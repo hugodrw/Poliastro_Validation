@@ -26,6 +26,9 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     ----------
 
     """
+    # Downwards Hohmann
+    down = False
+
     # Calculate transfer time for delta_u
     r_f = orbit_f.a
     r_f = r_f.to_value(u.m)
@@ -36,6 +39,9 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit, debug=True):
 
     # Calculate delta at which the burn should be applied
     target_delta = delta_u(t_trans, orbit_f)
+    if target_delta < 0:
+        down = True
+        target_delta = 360 * u.deg + target_delta # wrap to 360
     print('Target Delta: ' , target_delta)
 
     # Calulate the current delta
@@ -51,13 +57,12 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     w_f = orbit_f.n.to(u.deg / u.s)
 
     # Calculate the time to the first burn
-    dist = current_delta - target_delta
-    print('dist before: ' , dist)
+    dist = current_delta - target_delta if not down else target_delta - current_delta
+    print('dist: ', dist)
     if dist < 0:
         dist = 360 * u.deg + dist # wrap to 360
-    print('dist after: ' , dist)
-    t_1 = dist / (w_i - w_f)
-    print('t_1: ' , t_1)
+    t_1 = dist / np.abs((w_i - w_f))
+    print('t_1: ' , t_1) if debug else None
 
     # Propagate to the first burn
     orbit_i = orbit_i.propagate(t_1)
@@ -87,7 +92,7 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit, debug=True):
         (t_2.decompose(), dv_b.decompose()),
     )
 
-def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit):
+def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     r"""Compute thrust vectors and phase time needed for an inclination change.
 
     Parameters
@@ -100,9 +105,10 @@ def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit):
     # Propagate to thrust location (0, 180)
     thrust_location = 0 * u.deg if mean_anomaly_i <= 0 else 179.999 * u.deg
     time_to_thrust = orbit_i.time_to_anomaly(thrust_location)
-    print('currrent_anomaly', mean_anomaly_i)
-    print('thrust_location', thrust_location)
-    print('time_to_thrust', time_to_thrust)
+    if debug:
+        print('currrent_anomaly', mean_anomaly_i)
+        print('thrust_location', thrust_location)
+        print('time_to_thrust', time_to_thrust)
     orbit_i = orbit_i.propagate_to_anomaly(thrust_location)
 
     # Calculate the thrust value
@@ -112,14 +118,14 @@ def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit):
     inc_delta = inc_f - inc_i
     thrust_norm = 2*v*np.sin((inc_delta << u.rad)/2)
 
-    print('thrust_norm', thrust_norm)
-
     # Calculate the thrust vector
     y_thrust = np.sin(inc_delta/2)*thrust_norm
     z_thrust = -np.cos(inc_delta/2)*thrust_norm
     
-    print('y_thrust', y_thrust)
-    print('z_thrust', z_thrust)
+    if debug:
+        print('thrust_norm', thrust_norm)
+        print('y_thrust', y_thrust)
+        print('z_thrust', z_thrust)
 
     thrust_vector = np.array([0 ,y_thrust.value,z_thrust.value]) * u.m / u.s
 
