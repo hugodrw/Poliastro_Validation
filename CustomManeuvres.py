@@ -104,7 +104,8 @@ def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
 
     # Propagate to thrust location (0, 180)
     thrust_location = 0 * u.deg if mean_anomaly_i <= 0 else 179.999 * u.deg
-    time_to_thrust = orbit_i.time_to_anomaly(thrust_location)
+    print('thrust_location', thrust_location)
+    time_to_thrust = orbit_i.time_to_anomaly(thrust_location + orbit_i.argp << u.deg)
     if debug:
         print('currrent_anomaly', mean_anomaly_i)
         print('thrust_location', thrust_location)
