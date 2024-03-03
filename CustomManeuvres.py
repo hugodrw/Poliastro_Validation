@@ -123,6 +123,14 @@ def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit):
 
     thrust_vector = np.array([0 ,y_thrust.value,z_thrust.value]) * u.m / u.s
 
+    # Use rotation matrix to go from orbital to general referential
+    k = orbit_i.attractor.k
+    rv = orbit_i.rv()
+    rv = (rv[0].to_value(u.m), rv[-1].to_value(u.m / u.s))
+    _, ecc, inc, raan, argp, nu = rv2coe(k, *rv)
+    rot_matrix = coe_rotation_matrix(inc, raan, argp)
+    thrust_vector = rot_matrix @ thrust_vector
+
     return Maneuver(
         (time_to_thrust.decompose(), thrust_vector.decompose())
     )
