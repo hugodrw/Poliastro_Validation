@@ -121,6 +121,11 @@ def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     # Calculate the thrust vector
     y_thrust = np.sin(inc_delta/2)*thrust_norm
     z_thrust = -np.cos(inc_delta/2)*thrust_norm
+    # Inverse for 0 degrees
+    if thrust_location == 0 * u.deg:
+        print('zero deg transformation')
+        y_thrust = -y_thrust
+        z_thrust = -z_thrust
     
     if debug:
         print('thrust_norm', thrust_norm)
