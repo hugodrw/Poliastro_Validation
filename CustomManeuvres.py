@@ -25,14 +25,6 @@ def to_mean(nu, argp):
         mean = - 360 * u.deg + mean # wrap to [-180,180]
     return mean
 
-def to_nu(mean, argp):
-    nu = (mean - argp) << u.deg
-    print('nu before wrap', nu)
-    if nu < -180 * u.deg:
-        nu = 360 * u.deg + nu # wrap to [-180,180]
-        print('nu after wrap', nu)
-    return nu
-
 def time_to_inc_change(orbit):
     '''
         Compute inc change thrust location and time of flight to reach
@@ -48,8 +40,6 @@ def time_to_inc_change(orbit):
 
     return time, thrust_location
     
-
-
 def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     r"""Compute a Hohmann transfer with correct phasing to a target debris.
     For circular orbits only.
