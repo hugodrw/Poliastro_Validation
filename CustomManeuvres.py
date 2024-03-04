@@ -146,7 +146,14 @@ def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
         print('y_thrust', y_thrust)
         print('z_thrust', z_thrust)
 
-    thrust_vector = np.array([0 ,y_thrust.value,z_thrust.value]) * u.m / u.s
+    # Rotate values through nu
+    # thrust_vector = np.array([0 ,y_thrust.value,z_thrust.value]) * u.m / u.s
+    nu = orbit_i.nu << u.rad
+    print('nu: ', nu )
+    print(-np.sin(nu))
+    print(-np.cos(nu))
+    thrust_vector = np.array([-np.sin(nu)*y_thrust.value ,-np.cos(nu)*y_thrust.value,z_thrust.value]) * u.m / u.s
+    
 
     # Use rotation matrix to go from orbital to general referential
     k = orbit_i.attractor.k
