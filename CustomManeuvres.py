@@ -17,6 +17,38 @@ from poliastro.util import norm, wrap_angle
 from poliastro.core.elements import coe_rotation_matrix, rv2coe, rv_pqw
 import numpy as np
 
+# Helper functioms
+def to_mean(nu, argp):
+    # What is seen on the graph
+    mean = (nu + argp) << u.deg
+    if mean > 180 * u.deg:
+        mean = - 360 * u.deg + mean # wrap to [-180,180]
+    return mean
+
+def to_nu(mean, argp):
+    nu = (mean - argp) << u.deg
+    print('nu before wrap', nu)
+    if nu < -180 * u.deg:
+        nu = 360 * u.deg + nu # wrap to [-180,180]
+        print('nu after wrap', nu)
+    return nu
+
+def time_to_inc_change(orbit):
+    '''
+        Compute inc change thrust location and time of flight to reach
+    '''
+    # Compute location by converting nu to mean
+    mean_anomaly = to_mean(orbit.nu, orbit.argp)
+    thrust_location = 0 * u.deg if mean_anomaly <= 0 else 179.999 * u.deg
+    print('thrust_location mean: ', thrust_location)
+
+    # Compute time
+    delta_mean = thrust_location - mean_anomaly # should always be positive
+    time = (orbit.period << u.s) * delta_mean / (360 * u.deg)
+
+    return time, thrust_location
+    
+
 
 def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     r"""Compute a Hohmann transfer with correct phasing to a target debris.
@@ -99,18 +131,9 @@ def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     ----------
 
     """
-    # Fix anomaly 
-    mean_anomaly_i = (orbit_i.nu + orbit_i.argp) << u.deg
-
-    # Propagate to thrust location (0, 180)
-    thrust_location = 0 * u.deg if mean_anomaly_i <= 0 else 179.999 * u.deg
-    print('thrust_location', thrust_location)
-    time_to_thrust = orbit_i.time_to_anomaly(thrust_location + orbit_i.argp << u.deg)
-    if debug:
-        print('currrent_anomaly', mean_anomaly_i)
-        print('thrust_location', thrust_location)
-        print('time_to_thrust', time_to_thrust)
-    orbit_i = orbit_i.propagate_to_anomaly(thrust_location)
+    # Compute thrust location
+    time_to_thrust, thrust_location = time_to_inc_change(orbit_i)
+    orbit_i = orbit_i.propagate(time_to_thrust)
 
     # Calculate the thrust value
     v = norm(orbit_i.v << u.m / u.s)
