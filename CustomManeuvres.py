@@ -45,8 +45,8 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     print('Target Delta: ' , target_delta)
 
     # Calulate the current delta
-    mean_anomaly_i = (orbit_i.nu + orbit_i.argp) << u.deg
-    mean_anomaly_f = (orbit_f.nu + orbit_f.argp) << u.deg
+    mean_anomaly_i = (orbit_i.nu) << u.deg
+    mean_anomaly_f = (orbit_f.nu) << u.deg
     current_delta =  mean_anomaly_f - mean_anomaly_i << u.deg
     if current_delta < 0:
         current_delta = 360 * u.deg + current_delta # wrap to 360
@@ -69,8 +69,8 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     orbit_f = orbit_f.propagate(t_1)
     
     if debug:
-        mean_anomaly_i = (orbit_i.nu + orbit_i.argp) << u.deg
-        mean_anomaly_f = (orbit_f.nu + orbit_f.argp) << u.deg
+        mean_anomaly_i = (orbit_i.nu) << u.deg
+        mean_anomaly_f = (orbit_f.nu) << u.deg
 
         print('mean_anomaly_i: ' , mean_anomaly_i)
         print('new delta: ' , mean_anomaly_f - mean_anomaly_i << u.deg)
@@ -99,8 +99,8 @@ def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     ----------
 
     """
-    # Fix anomaly 
-    mean_anomaly_i = (orbit_i.nu + orbit_i.argp) << u.deg
+    # 
+    mean_anomaly_i = orbit_i.nu << u.deg
 
     # Propagate to thrust location (0, 180)
     thrust_location = 0 * u.deg if mean_anomaly_i <= 0 else 179.999 * u.deg
