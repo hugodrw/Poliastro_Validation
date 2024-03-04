@@ -135,11 +135,6 @@ def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     # Calculate the thrust vector
     y_thrust = np.sin(inc_delta/2)*thrust_norm
     z_thrust = -np.cos(inc_delta/2)*thrust_norm
-    # Inverse for 0 degrees
-    if thrust_location == 0 * u.deg:
-        print('zero deg transformation')
-        y_thrust = -y_thrust
-        z_thrust = -z_thrust
     
     if debug:
         print('thrust_norm', thrust_norm)
@@ -152,8 +147,13 @@ def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     print('nu: ', nu )
     print(-np.sin(nu))
     print(-np.cos(nu))
-    thrust_vector = np.array([-np.sin(nu)*y_thrust.value ,-np.cos(nu)*y_thrust.value,z_thrust.value]) * u.m / u.s
-    
+    thrust_vector = np.array([-np.sin(nu)*y_thrust.value ,np.cos(nu)*y_thrust.value,z_thrust.value]) * u.m / u.s
+
+    if thrust_location == 0 * u.deg:
+        print('zero deg transformation')
+        thrust_vector = - thrust_vector
+    else:
+        thrust_vector[1] = - thrust_vector[1]
 
     # Use rotation matrix to go from orbital to general referential
     k = orbit_i.attractor.k
