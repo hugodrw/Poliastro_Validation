@@ -39,6 +39,30 @@ def time_to_inc_change(orbit):
     time = (orbit.period << u.s) * delta_mean / (360 * u.deg)
 
     return time, thrust_location
+
+def time_to_raan_change(orbit_i, orbit_f):
+    '''
+        Compute inc change thrust location and time of flight to reach raan change location
+        Must be done AFTER inc change
+    '''
+    # Compute required values for equations
+    delta_raan = (orbit_f.raan - orbit_i.raan) << u.rad
+    i_initial = orbit_i.inc << u.rad
+
+    # Compute thrust location
+    theta = np.arccos(np.cos(i_initial)**2 + np.cos(delta_raan) * np.sin(i_initial)**2) # [rad]
+    theta = theta * - np.sign(delta_raan)
+    print('theta', theta << u.deg)
+    u_final = np.arccos(np.cos(i_initial) * np.sin(i_initial) * ( (1-np.cos(delta_raan)) / np.sin(theta) ) ) # [rad]
+    print('u_final', u_final << u.deg)
+
+    # Compute time
+    delta_u = (u_final - orbit_i.nu) << u.deg
+    if delta_u < 0:
+        delta_u = 360 * u.deg + delta_u # wrap to 360
+    time = (orbit_i.period << u.s) * delta_u / (360 * u.deg)
+    
+    return time, u_final, theta
     
 def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     r"""Compute a Hohmann transfer with correct phasing to a target debris.
@@ -154,6 +178,54 @@ def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
         thrust_vector = - thrust_vector
     else:
         thrust_vector[1] = - thrust_vector[1]
+
+    # Use rotation matrix to go from orbital to general referential
+    k = orbit_i.attractor.k
+    rv = orbit_i.rv()
+    rv = (rv[0].to_value(u.m), rv[-1].to_value(u.m / u.s))
+    _, ecc, inc, raan, argp, nu = rv2coe(k, *rv)
+    rot_matrix = coe_rotation_matrix(inc, raan, argp)
+    thrust_vector = rot_matrix @ thrust_vector
+
+    return Maneuver(
+        (time_to_thrust.decompose(), thrust_vector.decompose())
+    )
+
+def simple_raan_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
+    r"""Compute thrust vectors and phase time needed for an inclination change.
+
+    Parameters
+    ----------
+
+    """
+    # Compute thrust location and theta
+    time_to_thrust, thrust_location, theta = time_to_raan_change(orbit_i, orbit_f)
+    orbit_i = orbit_i.propagate(time_to_thrust)
+
+    # Calculate the thrust value
+    v = norm(orbit_i.v << u.m / u.s)
+    inc_i = orbit_i.inc << u.rad
+    inc_f = orbit_f.inc << u.rad
+    inc_delta = -theta
+    thrust_norm = 2*v*np.sin((inc_delta << u.rad)/2)
+
+    # Calculate the thrust vector
+    y_thrust = np.sin(inc_delta/2)*thrust_norm
+    z_thrust = -np.cos(inc_delta/2)*thrust_norm
+    
+    if debug:
+        print('thrust_norm', thrust_norm)
+        print('y_thrust', y_thrust)
+        print('z_thrust', z_thrust)
+
+    # Rotate values through nu
+    # thrust_vector = np.array([0 ,y_thrust.value,z_thrust.value]) * u.m / u.s
+    nu = orbit_i.nu << u.rad
+    print('nu: ', nu )
+    print(-np.sin(nu))
+    print(-np.cos(nu))
+    thrust_vector = np.array([-np.sin(nu)*y_thrust.value ,np.cos(nu)*y_thrust.value,z_thrust.value]) * u.m / u.s
+    thrust_vector = - thrust_vector
 
     # Use rotation matrix to go from orbital to general referential
     k = orbit_i.attractor.k
