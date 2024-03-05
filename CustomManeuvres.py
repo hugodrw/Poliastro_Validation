@@ -17,7 +17,29 @@ from poliastro.util import norm, wrap_angle
 from poliastro.core.elements import coe_rotation_matrix, rv2coe, rv_pqw
 import numpy as np
 
+# Helper functioms
+def to_mean(nu, argp):
+    # What is seen on the graph
+    mean = (nu + argp) << u.deg
+    if mean > 180 * u.deg:
+        mean = - 360 * u.deg + mean # wrap to [-180,180]
+    return mean
 
+def time_to_inc_change(orbit):
+    '''
+        Compute inc change thrust location and time of flight to reach
+    '''
+    # Compute location by converting nu to mean
+    mean_anomaly = to_mean(orbit.nu, orbit.argp)
+    thrust_location = 0 * u.deg if mean_anomaly <= 0 else 179.999 * u.deg
+    print('thrust_location mean: ', thrust_location)
+
+    # Compute time
+    delta_mean = thrust_location - mean_anomaly # should always be positive
+    time = (orbit.period << u.s) * delta_mean / (360 * u.deg)
+
+    return time, thrust_location
+    
 def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     r"""Compute a Hohmann transfer with correct phasing to a target debris.
     For circular orbits only.
@@ -99,17 +121,9 @@ def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     ----------
 
     """
-    # Fix anomaly 
-    mean_anomaly_i = (orbit_i.nu + orbit_i.argp) << u.deg
-
-    # Propagate to thrust location (0, 180)
-    thrust_location = 0 * u.deg if mean_anomaly_i <= 0 else 179.999 * u.deg
-    time_to_thrust = orbit_i.time_to_anomaly(thrust_location)
-    if debug:
-        print('currrent_anomaly', mean_anomaly_i)
-        print('thrust_location', thrust_location)
-        print('time_to_thrust', time_to_thrust)
-    orbit_i = orbit_i.propagate_to_anomaly(thrust_location)
+    # Compute thrust location
+    time_to_thrust, thrust_location = time_to_inc_change(orbit_i)
+    orbit_i = orbit_i.propagate(time_to_thrust)
 
     # Calculate the thrust value
     v = norm(orbit_i.v << u.m / u.s)
@@ -121,18 +135,25 @@ def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     # Calculate the thrust vector
     y_thrust = np.sin(inc_delta/2)*thrust_norm
     z_thrust = -np.cos(inc_delta/2)*thrust_norm
-    # Inverse for 0 degrees
-    if thrust_location == 0 * u.deg:
-        print('zero deg transformation')
-        y_thrust = -y_thrust
-        z_thrust = -z_thrust
     
     if debug:
         print('thrust_norm', thrust_norm)
         print('y_thrust', y_thrust)
         print('z_thrust', z_thrust)
 
-    thrust_vector = np.array([0 ,y_thrust.value,z_thrust.value]) * u.m / u.s
+    # Rotate values through nu
+    # thrust_vector = np.array([0 ,y_thrust.value,z_thrust.value]) * u.m / u.s
+    nu = orbit_i.nu << u.rad
+    print('nu: ', nu )
+    print(-np.sin(nu))
+    print(-np.cos(nu))
+    thrust_vector = np.array([-np.sin(nu)*y_thrust.value ,np.cos(nu)*y_thrust.value,z_thrust.value]) * u.m / u.s
+
+    if thrust_location == 0 * u.deg:
+        print('zero deg transformation')
+        thrust_vector = - thrust_vector
+    else:
+        thrust_vector[1] = - thrust_vector[1]
 
     # Use rotation matrix to go from orbital to general referential
     k = orbit_i.attractor.k
