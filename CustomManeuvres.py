@@ -2,19 +2,12 @@
 
 """
 from astropy import units as u
-
-from poliastro.core.maneuver import (
-    hohmann as hohmann_fast,
-)
-
 from CustomLowLevel import hohmann_any_angle
-
-
 from poliastro.maneuver import Maneuver
 from poliastro.twobody.orbit import Orbit
 from InPlanePhysics import delta_u
-from poliastro.util import norm, wrap_angle
-from poliastro.core.elements import coe_rotation_matrix, rv2coe, rv_pqw
+from poliastro.util import norm
+from poliastro.core.elements import coe_rotation_matrix, rv2coe
 import numpy as np
 
 # Helper functioms
