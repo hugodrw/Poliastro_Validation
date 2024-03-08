@@ -50,5 +50,7 @@ def init_random_debris(n):
 if __name__ == "__main__":
     initial_debris_list = init_random_debris(n=10)
     simulator = ModSimulator(initial_debris_list , 1)
-    a , b = simulator.strategy_1((9, 29))
-    print(a)
+    a = simulator.strategy_1((9, 29))
+    
+    a.to_csv("data.csv" , index=True)
+    print("Done")

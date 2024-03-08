@@ -8,6 +8,7 @@ import CustomManeuvres as CustomManeuvres
 
 import copy
 import numpy as np
+import pandas as pd
 
 
 class Debris:
@@ -46,10 +47,11 @@ class ModSimulator:
         2. Raan
         3. Hohmann
         """
-        log_otv_pos = []
-        log_debris_pos = []
-        for i in range(len(self.debris_list)):
-            log_debris_pos.append([])
+        
+        column_names = ["otv"] + [f'debris{i+1}' for i in range(len(self.debris_list))]
+        df = pd.DataFrame(columns=column_names)
+
+
 
         # Set the target from the action
         target_debris = self.debris_list[action[0]].poliastro_orbit
@@ -64,19 +66,25 @@ class ModSimulator:
 
         n_sec = transfer_time.to(u.s).value
         n_frames = n_sec * n_frames_per_second
-        dt = 1/30 * u.s
+        step = 1e2
+        dt = 1/30 * u.s * step
         
-        for _ in range(int(20)): #n_frames
+        for frame_id in range(0 , int(n_frames)): #n_frames
 
             self.otv_orbit = self.otv_orbit.propagate(dt)
             otv_pos , _ = self.otv_orbit.rv()
-            log_otv_pos.append(otv_pos)
-
+            otv_pos = otv_pos.to(u.km).value / 6371
+            
+            new_data = [otv_pos]
             for i , debris in enumerate(self.debris_list):
                 self.debris_list[i].poliastro_orbit = debris.poliastro_orbit.propagate(dt)
 
                 deb_i_pos , _ = self.debris_list[i].poliastro_orbit.rv()
-                log_debris_pos[i].append(deb_i_pos)
+                deb_i_pos = deb_i_pos.to(u.km).value / 6371
+                new_data.append(deb_i_pos)
+
+            df.loc[frame_id] = new_data
+            
             
 
 
@@ -129,7 +137,7 @@ class ModSimulator:
         #         self.debris_list[i].poliastro_orbit = debris.poliastro_orbit.propagate(extra_time)
 
         #return total_dv , min_time
-        return log_otv_pos , log_debris_pos
+        return df
 
 
 

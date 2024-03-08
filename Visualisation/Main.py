@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from Extras.LineManager import *
 from Extras.HelperFunctions import *
@@ -14,17 +15,23 @@ from direct.task import Task
 from direct.gui.OnscreenText import OnscreenText
 from direct.gui.OnscreenImage import OnscreenImage
 
-DT = 1/30
+
 
 class MyApp(ShowBase):
 
-    def __init__(self):
+    def __init__(self , data_path):
         ShowBase.__init__(self)
         self.anti_antialiasing(is_on=True)
 
-        
-        
+        self.data = pd.read_csv(data_path)
+        self.current_frame = 0
 
+        self.n_frames = len(self.data)
+        print(self.n_frames)
+
+        row_0 = self.data.loc[self.current_frame]
+        self.n_debris = len(row_0) - 2
+        
 
         self.setup_scene()
         self.taskMgr.add(self.check_keys, "check_keys_task")
@@ -32,7 +39,7 @@ class MyApp(ShowBase):
         self.game_is_paused = False
         self.accept("a" , self.on_a_pressed)
         
-        
+        self.taskMgr.doMethodLater(1/30, self.renderer, 'renderer')
 
         
 
@@ -47,10 +54,10 @@ class MyApp(ShowBase):
 
 
     def renderer(self, task):
-
+        
         if not self.game_is_paused:
-            self.otv.update(dt=DT)
-            self.target.update(dt=DT)
+            # self.otv.update(dt=DT)
+            # self.target.update(dt=DT)
 
             
             
@@ -85,14 +92,40 @@ class MyApp(ShowBase):
         self.line_manager.update_line('trail_line', line_pos, color=(1, 0, 0, 1))
 
         
+        # Frames updates
+        current_row = self.data.loc[self.current_frame]
+        
+        self.current_frame += 1
+        if self.current_frame == self.n_frames:
+            self.current_frame = 0
+
+        # otv
+        otv_pos_str = current_row['otv'].strip("[]").split()
+        otv_pos = np.array([float(num) for num in otv_pos_str])
+        self.otv_node.setPos(otv_pos[0] , otv_pos[1] , otv_pos[2])
+
+        # debris
+        for i in range(1 , self.n_debris):
+            debris_i_pos_str = current_row[f'debris{i}'].strip("[]").split()
+            debris_i_pos = np.array([float(num) for num in debris_i_pos_str])
+            self.debris_nodes[i].setPos(debris_i_pos[0] , debris_i_pos[1] , debris_i_pos[2])
             
         
 
     def setup_nodes(self):
         self.make_earth()
 
-        self.all_debris_nodes = []
-        self.all_debris_planets = []
+        self.otv_node = self.make_sphere(size=0.05 , low_poly=True)
+        self.otv_node.reparentTo(self.render)
+
+        self.debris_nodes = []
+        for _ in range(self.n_debris):
+            node = self.make_sphere(size=0.02 , low_poly=True)
+            node.reparentTo(self.render)
+            self.debris_nodes.append(node)
+
+
+
 
         self.otv_trail_nodes = []
         self.otv_trail_counter = 10
@@ -268,10 +301,17 @@ class MyApp(ShowBase):
 
 
     def setup_hud(self):
-        pass
+        y_st = 0.9
+        y_sp = 0.1
+        x_po = -1.3
+        self.label_1 = self.add_text_label(text="label 1" , pos=(x_po , y_st))
+
+        self.pause_label = self.add_text_label(text="II" , pos=(0 , y_st))
+        self.pause_label.hide()
+        
 
     def update_hud(self):
-        pass
+        self.label_1.setText(f"{self.current_frame}/{self.n_frames}")
     
 
 
@@ -399,5 +439,5 @@ class MyApp(ShowBase):
 
 
 if __name__ == "__main__":
-    app = MyApp()
+    app = MyApp(data_path="/Users/pierre/Documents/GitHub/Poliastro_Validation/data.csv")
     app.run()
