@@ -1,21 +1,18 @@
-"""Custom Orbital maneuvers.
-
 """
+Custom Orbital maneuvers.
+"""
+
+import numpy as np
 from astropy import units as u
-
-from poliastro.core.maneuver import (
-    hohmann as hohmann_fast,
-)
-
-from CustomLowLevel import hohmann_any_angle
-
 
 from poliastro.maneuver import Maneuver
 from poliastro.twobody.orbit import Orbit
+from poliastro.core.elements import coe_rotation_matrix, rv2coe
+from poliastro.util import norm
+
+from CustomLowLevel import hohmann_any_angle
 from InPlanePhysics import delta_u
-from poliastro.util import norm, wrap_angle
-from poliastro.core.elements import coe_rotation_matrix, rv2coe, rv_pqw
-import numpy as np
+
 
 # Helper functioms
 def to_mean(nu, argp):
@@ -32,7 +29,6 @@ def time_to_inc_change(orbit):
     # Compute location by converting nu to mean
     mean_anomaly = to_mean(orbit.nu, orbit.argp)
     thrust_location = 0 * u.deg if mean_anomaly <= 0 else 179.999 * u.deg
-    print('thrust_location mean: ', thrust_location)
 
     # Compute time
     delta_mean = thrust_location - mean_anomaly # should always be positive
@@ -52,9 +48,9 @@ def time_to_raan_change(orbit_i, orbit_f):
     # Compute thrust location
     theta = np.arccos(np.cos(i_initial)**2 + np.cos(delta_raan) * np.sin(i_initial)**2) # [rad]
     theta = theta * - np.sign(delta_raan)
-    print('theta', theta << u.deg)
+    
     u_final = np.arccos(np.cos(i_initial) * np.sin(i_initial) * ( (1-np.cos(delta_raan)) / np.sin(theta) ) ) # [rad]
-    print('u_final', u_final << u.deg)
+    
 
     # Compute time
     delta_u = (u_final - orbit_i.nu) << u.deg
@@ -88,7 +84,7 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     if target_delta < 0:
         down = True
         target_delta = 360 * u.deg + target_delta # wrap to 360
-    print('Target Delta: ' , target_delta)
+    
 
     # Calulate the current delta
     mean_anomaly_i = (orbit_i.nu + orbit_i.argp) << u.deg
@@ -96,7 +92,7 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     current_delta =  mean_anomaly_f - mean_anomaly_i << u.deg
     if current_delta < 0:
         current_delta = 360 * u.deg + current_delta # wrap to 360
-    print('current_delta : ' , current_delta) if debug else None
+    
 
     # Calculate the angular velocities
     w_i = orbit_i.n.to(u.deg / u.s)
@@ -104,11 +100,11 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit, debug=True):
 
     # Calculate the time to the first burn
     dist = current_delta - target_delta if not down else target_delta - current_delta
-    print('dist: ', dist)
+    
     if dist < 0:
         dist = 360 * u.deg + dist # wrap to 360
     t_1 = dist / np.abs((w_i - w_f))
-    print('t_1: ' , t_1) if debug else None
+    
 
     # Propagate to the first burn
     orbit_i = orbit_i.propagate(t_1)
@@ -118,8 +114,7 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit, debug=True):
         mean_anomaly_i = (orbit_i.nu + orbit_i.argp) << u.deg
         mean_anomaly_f = (orbit_f.nu + orbit_f.argp) << u.deg
 
-        print('mean_anomaly_i: ' , mean_anomaly_i)
-        print('new delta: ' , mean_anomaly_f - mean_anomaly_i << u.deg)
+        
 
     # Compute delta_v vectors from first burn location
     r_f = orbit_f.a
@@ -138,7 +133,7 @@ def hohmann_with_phasing(orbit_i: Orbit, orbit_f: Orbit, debug=True):
         (t_2.decompose(), dv_b.decompose()),
     )
 
-def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
+def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit, do_propagation=False):
     r"""Compute thrust vectors and phase time needed for an inclination change.
 
     Parameters
@@ -147,7 +142,8 @@ def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     """
     # Compute thrust location
     time_to_thrust, thrust_location = time_to_inc_change(orbit_i)
-    orbit_i = orbit_i.propagate(time_to_thrust)
+    if do_propagation:
+        orbit_i = orbit_i.propagate(time_to_thrust)
 
     # Calculate the thrust value
     v = norm(orbit_i.v << u.m / u.s)
@@ -160,21 +156,15 @@ def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     y_thrust = np.sin(inc_delta/2)*thrust_norm
     z_thrust = -np.cos(inc_delta/2)*thrust_norm
     
-    if debug:
-        print('thrust_norm', thrust_norm)
-        print('y_thrust', y_thrust)
-        print('z_thrust', z_thrust)
+    
 
     # Rotate values through nu
     # thrust_vector = np.array([0 ,y_thrust.value,z_thrust.value]) * u.m / u.s
     nu = orbit_i.nu << u.rad
-    print('nu: ', nu )
-    print(-np.sin(nu))
-    print(-np.cos(nu))
+    
     thrust_vector = np.array([-np.sin(nu)*y_thrust.value ,np.cos(nu)*y_thrust.value,z_thrust.value]) * u.m / u.s
 
     if thrust_location == 0 * u.deg:
-        print('zero deg transformation')
         thrust_vector = - thrust_vector
     else:
         thrust_vector[1] = - thrust_vector[1]
@@ -191,7 +181,7 @@ def simple_inc_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
         (time_to_thrust.decompose(), thrust_vector.decompose())
     )
 
-def simple_raan_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
+def simple_raan_change(orbit_i: Orbit, orbit_f: Orbit, do_propagation=False):
     r"""Compute thrust vectors and phase time needed for an inclination change.
 
     Parameters
@@ -200,7 +190,8 @@ def simple_raan_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     """
     # Compute thrust location and theta
     time_to_thrust, thrust_location, theta = time_to_raan_change(orbit_i, orbit_f)
-    orbit_i = orbit_i.propagate(time_to_thrust)
+    if do_propagation:
+        orbit_i = orbit_i.propagate(time_to_thrust)
 
     # Calculate the thrust value
     v = norm(orbit_i.v << u.m / u.s)
@@ -213,17 +204,10 @@ def simple_raan_change(orbit_i: Orbit, orbit_f: Orbit, debug=True):
     y_thrust = np.sin(inc_delta/2)*thrust_norm
     z_thrust = -np.cos(inc_delta/2)*thrust_norm
     
-    if debug:
-        print('thrust_norm', thrust_norm)
-        print('y_thrust', y_thrust)
-        print('z_thrust', z_thrust)
 
     # Rotate values through nu
     # thrust_vector = np.array([0 ,y_thrust.value,z_thrust.value]) * u.m / u.s
     nu = orbit_i.nu << u.rad
-    print('nu: ', nu )
-    print(-np.sin(nu))
-    print(-np.cos(nu))
     thrust_vector = np.array([-np.sin(nu)*y_thrust.value ,np.cos(nu)*y_thrust.value,z_thrust.value]) * u.m / u.s
     thrust_vector = - thrust_vector
 
